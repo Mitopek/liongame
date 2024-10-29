@@ -1,0 +1,80 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 2
+  tags:
+  - Wall
+  - Sand
+  - PlayerCenterTrigger
+  - Mud
+  - Mask
+  - Tree
+  - Bush
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - 
+  - Water
+  - UI
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: Background
+    uniqueID: 468232123
+    locked: 0
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  - name: Sand
+    uniqueID: 271351069
+    locked: 0
+  - name: Item
+    uniqueID: 3747639099
+    locked: 0
+  - name: BigWall
+    uniqueID: 83517035
+    locked: 0
+  - name: Walls
+    uniqueID: 3990059219
+    locked: 0
+  - name: Player
+    uniqueID: 2758050607
+    locked: 0
+  - name: Enemy
+    uniqueID: 3832558635
+    locked: 0
+  - name: Mask
+    uniqueID: 3905490533
+    locked: 0
+  - name: Tree
+    uniqueID: 2514919201
+    locked: 0
+  - name: Bush
+    uniqueID: 1356354065
+    locked: 0
