@@ -8,8 +8,8 @@ public class PlayerState : MonoBehaviour
     public GameObject maskPrefab;
     float invisibleTime = 10.0f;
     float maskTime = 10.0f;
-    bool isInvisible = false;
-    bool hasMask = false;
+    public bool isInvisible = false;
+    public bool hasMask = false;
     
     public bool isInBush = false;
 

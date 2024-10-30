@@ -11,6 +11,9 @@ TagManager:
   - Mask
   - Tree
   - Bush
+  - Monkey
+  - Boar
+  - Bird
   layers:
   - Default
   - TransparentFX

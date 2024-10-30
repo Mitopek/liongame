@@ -101,6 +101,20 @@ public abstract class Movement : MonoBehaviour
         currentTargetPosition = null;
     }
 
+    protected MoveDirectionType GetOppositeDirection(MoveDirectionType direction) {
+        switch(direction) {
+            case MoveDirectionType.Up:
+                return MoveDirectionType.Down;
+            case MoveDirectionType.Down:
+                return MoveDirectionType.Up;
+            case MoveDirectionType.Left:
+                return MoveDirectionType.Right;
+            case MoveDirectionType.Right:
+                return MoveDirectionType.Left;
+            default:
+                return MoveDirectionType.None;
+        }
+    }
     protected MoveDirectionType GetEqualizingDirection(Vector2 targetPosition) {
         float currentX = getRoundedPosition(transform.position).x;
         float currentY = getRoundedPosition(transform.position).y;

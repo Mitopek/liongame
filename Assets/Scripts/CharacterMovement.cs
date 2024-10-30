@@ -117,6 +117,10 @@ public class CharacterMovement : Movement
         blockMovement = false;
     }
 
+    public void Die() {
+        Debug.Log("Died");
+    }
+
 
     bool IsInBush(Vector2 position) {
         int currentX = (int)MapSystem.Instance.getXFromPosition(position.x);
