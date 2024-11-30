@@ -5,21 +5,42 @@ using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 public class Enemy : Movement{
-    public bool canMask = false;
-    public bool canColide = false;
+    public GameObject eggPrefab;
+    public GameObject sinkPrefab;
     public bool canEat = false;
+    public bool canStink = false;
+    public bool canFunny = false;
+    public bool canFollowPlayer = true;
+    public bool canCatch = true;
+    public bool canLayEgg = false;
+    bool isStinky = false;
+    bool isFunny = false;
+    bool isWatchingPlayer = false;
+    bool isFlying = false;
+    int eggChance = 5;
+
+    float stinkTime = 10.0f;
+    float funnyTime = 10.0f;
+    float currentSpeed;
+
     protected override void Start()
     {
         base.Start();
+        currentSpeed = speed;
         
     }
 
     // Update is called once per frame
     void Update()
     {
-        // jesli ruch wylaczony
+        if(isWatchingPlayer) {
+            RotateToTarget(CharacterMovement.Instance.gameObject);
+        }
         if(blockMovement) {
             return;
+        }
+        if(gameObject.tag == "Snake") {
+            StartCoroutine(BlockOnPlayerNear());
         }
         if(nextMoveDirection == MoveDirectionType.None) {
             // ResetMovement();
@@ -27,6 +48,9 @@ public class Enemy : Movement{
             return;
         }
         //jesli doszedlismy do celu
+        if(allowFly) {
+            CheckFly();
+        }
         if(!isMoving) {
             Vector2Int? targetPositionIndexes = getTargetPositionIndexes(nextMoveDirection);
             if(targetPositionIndexes == null) {
@@ -39,6 +63,7 @@ public class Enemy : Movement{
             }
             UpdateTargetPosition(nextMoveDirection, targetPositionIndexes.Value);
             isMoving = true;
+            MakeMovingAnimation();
             // equalizingTargetPosition = GetEqaualizingTargetPosition(targetPosition);
         } else if(WantTurnAround()) {
             Vector2Int? targetPositionIndexes = getTargetPositionIndexes(nextMoveDirection);
@@ -57,18 +82,23 @@ public class Enemy : Movement{
             isOnTarget = true;
             nextMoveDirection = MoveDirectionType.None;
             currentTargetPosition = null;
+            if(canLayEgg) {
+                DrawLayEgg();
+            }
         } else {
             isOnTarget = false;
-            transform.position = Vector2.MoveTowards(transform.position, currentTargetPosition.Value, speed * Time.deltaTime);
+            transform.position = Vector2.MoveTowards(transform.position, currentTargetPosition.Value, currentSpeed * Time.deltaTime);
             currentPositionIndexes = currentTargetPositionIndexes;
         }
     }
 
     void CreateNextMoveDirection() {
-        MoveDirectionType? playerTargetDirection = GetPlayerTargetDirection();
-        if(playerTargetDirection != null) {
-            nextMoveDirection = playerTargetDirection.Value;
-            return;
+        if(canFollowPlayer && !isStinky) {
+            MoveDirectionType? playerTargetDirection = GetPlayerTargetDirection();
+            if(playerTargetDirection != null) {
+                nextMoveDirection = playerTargetDirection.Value;
+                return;
+            }
         }
         List<MoveDirectionType> usedDirections = new List<MoveDirectionType>();
         int maxTries = 20;
@@ -94,23 +124,127 @@ public class Enemy : Movement{
         }
     }
 
-    IEnumerator ResetBlockMovement() {
-        yield return new WaitForSeconds(1f);
-        if(!isOnTarget) {
-            if(CanMoveToPositionIndexes(currentPositionIndexes.Value)) {
-                MoveDirectionType? oppositeDirection = GetOppositeDirection(lastMoveDirection);
-                currentTargetPosition = MapSystem.Instance.getPositionFromXAndY(currentPositionIndexes.Value.x, currentPositionIndexes.Value.y);
-                currentTargetPositionIndexes = currentPositionIndexes;
-                currentMoveDirection = oppositeDirection.Value;
-            } else {
-                //TODO
+    void CheckFly() {
+        if(!isFlying && currentTargetPosition != null) {
+            Vector2Int? targetPositionIndexes = MapSystem.Instance.getXAndYFromPosition(currentTargetPosition.Value);
+            if(targetPositionIndexes != null) {
+                if(HasObjectToFly(targetPositionIndexes.Value)) {
+                    isFlying = true;
+                    Animator animator = GetComponent<Animator>();
+                    animator.SetBool("isFlying", true);
+                    SpriteRenderer spriteRenderer = GetComponent<SpriteRenderer>();
+                    spriteRenderer.sortingLayerName = "FlyingEnemy";
+                    currentSpeed = speed / 2;
+                }
+            }
+        } else if(isFlying && currentPositionIndexes != null && isOnTarget) {
+            if(!HasObjectToFly(currentPositionIndexes.Value)) {
+                isFlying = false;
+                Animator animator = GetComponent<Animator>();
+                animator.SetBool("isFlying", false);
+                SpriteRenderer spriteRenderer = GetComponent<SpriteRenderer>();
+                spriteRenderer.sortingLayerName = "Enemy";
+                currentSpeed = speed;
             }
         }
+    }
+
+    void DrawLayEgg() {
+        if(mapItems[currentPositionIndexes.Value.y, currentPositionIndexes.Value.x].Count > 0) {
+            foreach(MapItemType mapItem in mapItems[currentPositionIndexes.Value.y, currentPositionIndexes.Value.x]) {
+                if(mapItem == MapItemType.Wall) {
+                    return;
+                }
+                if(mapItem == MapItemType.Tree) {
+                    return;
+                }
+                if(mapItem == MapItemType.Bush) {
+                    return;
+                }
+            }
+        }
+        int random = UnityEngine.Random.Range(0, 100);
+        if(random < eggChance) {
+            Instantiate(eggPrefab, transform.position, Quaternion.identity);
+        }
+    }
+
+    public void SetPee(float time) {
+        if(!canEat) {
+            return;
+        }
+        blockMovement = true;
+        canCatch = false;
+        Animator animator = GetComponent<Animator>();
+        animator.SetBool("isPeeing", true);
+        StartCoroutine(DesactivatePee(time));
+    }
+
+    IEnumerator DesactivatePee(float time) {
+        yield return new WaitForSeconds(time);
+        blockMovement = false;
+        canCatch = true;
+        Animator animator = GetComponent<Animator>();
+        animator.SetBool("isPeeing", false);
+    }
+
+    IEnumerator BlockOnPlayerNear() {
+        blockMovement = true;
+        isWatchingPlayer = true;
+        DisableMovingAnimation();
+        //player state
+        PlayerState player = CharacterMovement.Instance.GetComponent<PlayerState>();
+        if(player.isInvisible || player.isInBush) {
+            blockMovement = false;
+            isWatchingPlayer = false;
+            RotateCharacter();
+            MakeMovingAnimation();
+            yield break;
+        }
+        Transform playerTransform = CharacterMovement.Instance.transform;
+        Vector2Int? playerPositionIndexes = MapSystem.Instance.getXAndYFromPosition(playerTransform.position);
+        if(Math.Abs(playerPositionIndexes.Value.x - currentPositionIndexes.Value.x) > 2 || Math.Abs(playerPositionIndexes.Value.y - currentPositionIndexes.Value.y) > 2) {
+            blockMovement = false;
+            isWatchingPlayer = false;
+            RotateCharacter();
+            MakeMovingAnimation();
+        } else {
+            yield return new WaitForSeconds(1f);
+            StartCoroutine(BlockOnPlayerNear());
+        }
+    }
+    IEnumerator ResetBlockMovement() {
+        yield return new WaitForSeconds(1f);
         blockMovement = false;
     }
 
+//up down right or left - where is the nearest player
+    void RotateToTarget(GameObject target) {
+        float xDiff = target.transform.position.x - transform.position.x;
+        float yDiff = target.transform.position.y - transform.position.y;
+        if(Math.Abs(xDiff) > Math.Abs(yDiff)) {
+            if(xDiff > 0) {
+                transform.rotation = Quaternion.Euler(0, 0, 270);
+            } else {
+                transform.rotation = Quaternion.Euler(0, 0, 90);
+            }
+        } else {
+            if(yDiff > 0) {
+                transform.rotation = Quaternion.Euler(0, 0, 0);
+            } else {
+                transform.rotation = Quaternion.Euler(0, 0, 180);
+            }
+        }
+    }
+
     MoveDirectionType? GetPlayerTargetDirection() {
-        Vector2Int? playerPositionIndexes = CharacterMovement.Instance.currentPositionIndexes;
+        //get player transform
+        Transform playerTransform = CharacterMovement.Instance.transform;
+        Vector2Int? playerPositionIndexes = MapSystem.Instance.getXAndYFromPosition(playerTransform.position);
+        Debug.Log(playerPositionIndexes);
+        if(playerPositionIndexes == null) {
+            return null;
+        }
         PlayerState player = CharacterMovement.Instance.GetComponent<PlayerState>();
         if(!CanMoveToPositionIndexes(playerPositionIndexes.Value)) {
             return null;
@@ -126,6 +260,31 @@ public class Enemy : Movement{
         System.Random rand = new System.Random();
         bool reverseOuterLoop = rand.Next(2) == 1; 
         bool reverseInnerLoop = rand.Next(2) == 1; 
+        //jesli pomiedzy graczem a botem jest jakas sciana lub drzewo to return 
+        int yMin = Math.Min(playerPositionIndexes.Value.y, currentPositionIndexes.Value.y);
+        int xMin = Math.Min(playerPositionIndexes.Value.x, currentPositionIndexes.Value.x);
+        int yEnd = Math.Max(playerPositionIndexes.Value.y, currentPositionIndexes.Value.y);
+        int xEnd = Math.Max(playerPositionIndexes.Value.x, currentPositionIndexes.Value.x);
+        int maxRange = 3; //bird too :)
+        if (yEnd - yMin > maxRange || xEnd - xMin > maxRange) {
+            for(int i = yMin; i <= yEnd; i++) {
+                for(int j = xMin; j <= xEnd; j++) {
+                    if(mapItems[i, j].Count > 0) {
+                        foreach(MapItemType mapItem in mapItems[i, j]) {
+                            if(mapItem == MapItemType.Wall) {
+                                return null;
+                            }
+                            if(mapItem == MapItemType.Tree) {
+                                return null;
+                            }
+                            if(mapItem == MapItemType.Bush) {
+                                return null;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         while (true) {
             maxTries--;
             if (maxTries <= 0) {
@@ -170,15 +329,12 @@ public class Enemy : Movement{
 
                     if (directionsMapArray[y, x] != null && directionsMapArray[y, x] != MoveDirectionType.None && 
                         currentPositionIndexes.Value.x == x && currentPositionIndexes.Value.y == y) {
-
-                        Debug.Log("FInd on " + maxTries);
+                        Debug.Log("XDDD");
                         MoveDirectionType? direction = GetDirectionFromTrace(new Vector2Int(x, y), directionsMapArray);
-
+                        Debug.Log(direction);
                         if (direction != null) {
-                            Debug.Log("and direction XDDDDDD: " + direction.Value);
                             return direction.Value;
                         }
-                        Debug.Log("and direction XDDDDDD: NULL " + 1);
                         return null;
                     }
                 }
@@ -189,29 +345,30 @@ public class Enemy : Movement{
     MoveDirectionType? GetDirectionFromTrace(Vector2Int positionIndexes, MoveDirectionType?[,] directionsMapArray) {
         HashSet<MoveDirectionType> usedDirections = new();
         List<MoveDirectionType> directions = new();
-        Vector2Int? playerPositionIndexes = CharacterMovement.Instance.currentPositionIndexes;
+        Transform playerTransform = CharacterMovement.Instance.transform;
+        Vector2Int? playerPositionIndexes = MapSystem.Instance.getXAndYFromPosition(playerTransform.position);
         int maxTries = 100;
         while(true) {
             maxTries--;
             if(positionIndexes.x == playerPositionIndexes.Value.x && positionIndexes.y == playerPositionIndexes.Value.y) {
                 if(directions.Count == 0) {
+                    Debug.Log("Because 1");
                     return null;
                 }
                 return directions[0];
             }
             MoveDirectionType? direction = directionsMapArray[positionIndexes.y, positionIndexes.x];
-            Debug.Log("direction: " + direction + " " + positionIndexes.x + " " + positionIndexes.y);
             if(direction == null) {
-                Debug.Log("on tries: " + maxTries);
+                Debug.Log("Because 2");
                 return null;
             }
             MoveDirectionType opositeDirection = GetOppositeDirection(direction.Value);
             if(opositeDirection == MoveDirectionType.None) {
-                Debug.Log("opositeDirection: " + 1);
+                Debug.Log("Because 3");
                 return null;
             }
             if(usedDirections.Contains(direction.Value)) {
-                Debug.Log("opositeDirection: " + 2);
+                Debug.Log("Because 4");
                 return null;
             }
             usedDirections.Add(opositeDirection);
@@ -230,10 +387,8 @@ public class Enemy : Movement{
                     break;
             }
             if(positionIndexes.x < 0 || positionIndexes.x >= maxColumns || positionIndexes.y < 0 || positionIndexes.y >= maxRows) {
-                Debug.Log("opositeDirection: " + 3);
                 return null;
             }
-            Debug.Log("HAHAHAH: " + 5);
             directions.Add(opositeDirection);
         }
     }
@@ -244,43 +399,94 @@ public class Enemy : Movement{
         MoveDirectionType rightDirection = GetRotateDirection(MoveDirectionType.Right, currentMoveDirection);
         MoveDirectionType leftDirection = GetRotateDirection(MoveDirectionType.Left, currentMoveDirection);
         MoveDirectionType downDirection = GetRotateDirection(MoveDirectionType.Down, currentMoveDirection);
+        Vector2Int? upPosition = getTargetPositionIndexes(upDirection);
+        Vector2Int? rightPosition = getTargetPositionIndexes(rightDirection);
+        Vector2Int? leftPosition = getTargetPositionIndexes(leftDirection);
+        Vector2Int? downPosition = getTargetPositionIndexes(downDirection);
         int randomRange = 0;
         if(!usedDirections.Contains(upDirection)) {
-            randomRange += 50;
+            if(isStinky) {
+                randomRange += 5;
+            } else if(HasObjectToFly(upPosition.Value)) {
+                randomRange += 5;
+            } else {
+                randomRange += 50;
+            }
         }
         if(!usedDirections.Contains(rightDirection)) {
-            randomRange += 20;
+            if(isStinky) {
+                randomRange += 5;
+            } else if(HasObjectToFly(rightPosition.Value)) {
+                randomRange += 5;
+            } else {
+                randomRange += 20;
+            }
         }
         if(!usedDirections.Contains(leftDirection)) {
-            randomRange += 20;
+            if(isStinky) {
+                randomRange += 5;
+            } else if(HasObjectToFly(leftPosition.Value)) {
+                randomRange += 5;
+            } else {
+                randomRange += 20;
+            }
         }
         if(!usedDirections.Contains(downDirection)) {
-            randomRange += 10;
+            if(isStinky) {
+                randomRange += 5;
+            } else if(HasObjectToFly(downPosition.Value)) {
+                randomRange += 5;
+            } else {
+                randomRange += 10;
+            }
         }
         int random = UnityEngine.Random.Range(0, randomRange);
-        Debug.Log("random: " + random +" "+ randomRange);
         int threshold = 0;
 
         if (!usedDirections.Contains(upDirection)) {
-            threshold += 50;
+            if(isStinky) {
+                threshold += 5;
+            } else if(HasObjectToFly(upPosition.Value)) {
+                threshold += 5;
+            } else {
+                threshold += 50;
+            }
             if (random < threshold) {
                 return upDirection;
             }
         }
         if (!usedDirections.Contains(rightDirection)) {
-            threshold += 20;
+            if(isStinky) {
+                threshold += 5;
+            } else if(HasObjectToFly(rightPosition.Value)) {
+                threshold += 5;
+            } else {
+                threshold += 20;
+            }
             if (random < threshold) {
                 return rightDirection;
             }
         }
         if (!usedDirections.Contains(leftDirection)) {
-            threshold += 20;
+            if(isStinky) {
+                threshold += 5;
+            } else if(HasObjectToFly(leftPosition.Value)) {
+                threshold += 5;
+            } else {
+                threshold += 20;
+            }
             if (random < threshold) {
                 return leftDirection;
             }
         }
         if (!usedDirections.Contains(downDirection)) {
-            threshold += 10;
+            if(isStinky) {
+                threshold += 5;
+            } else if(HasObjectToFly(downPosition.Value)) {
+                threshold += 5;
+            } else {
+                threshold += 10;
+            }
             if (random < threshold) {
                 return downDirection;
             }
@@ -340,13 +546,16 @@ public class Enemy : Movement{
         }
         if(mapItems[positionIndexes.y, positionIndexes.x].Count > 0) {
             foreach(MapItemType mapItem in mapItems[positionIndexes.y, positionIndexes.x]) {
-                if(mapItem == MapItemType.Wall && !allowFly) {
+                if(mapItem == MapItemType.Wall && (!allowFly || isStinky)) {
                     return false;
                 }
-                if(mapItem == MapItemType.Tree && !allowFly) {
+                if(mapItem == MapItemType.Tree && (!allowFly || isStinky)) {
                     return false;
                 }
                 if(mapItem == MapItemType.Bush && !allowBush) {
+                    return false;
+                }
+                if(mapItem == MapItemType.Hole) {
                     return false;
                 }
             }
@@ -354,40 +563,70 @@ public class Enemy : Movement{
         return true;
     }
 
-    protected void OnMask() {
-        Debug.Log("XD");
+    protected bool HasObjectToFly(Vector2Int positionIndexes) {
+        if(positionIndexes.x < 0 || positionIndexes.x >= maxColumns || positionIndexes.y < 0 || positionIndexes.y >= maxRows) {
+            return false;
+        }
+        if(mapItems[positionIndexes.y, positionIndexes.x].Count > 0) {
+            foreach(MapItemType mapItem in mapItems[positionIndexes.y, positionIndexes.x]) {
+                if(mapItem == MapItemType.Wall) {
+                    return true;
+                }
+                if(mapItem == MapItemType.Tree) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
-    protected void OnColide() {
+    protected void OnStinky() {
+        isStinky = true;
+        canCatch = false;
+        currentSpeed = speed / 3;
+        Instantiate(sinkPrefab, transform.position, Quaternion.identity, transform);
+        StartCoroutine(RemoveStink());
+    }
+
+    protected void OnFunny() {
+        isFunny = true;
+        canCatch = false;
         blockMovement = true;
-        Debug.Log("Michal");
-        ResetMovement();
-        StartCoroutine(ResetBlockMovement());
+        RotateToTarget(CharacterMovement.Instance.gameObject);
+        Animator animator = GetComponent<Animator>();
+        animator.SetBool("isFunny", true);
+        StartCoroutine(RemoveFunny());
+    }
+
+    IEnumerator RemoveStink() {
+        yield return new WaitForSeconds(stinkTime);
+        isStinky = false;
+        canCatch = true;
+        currentSpeed = speed;
+        Destroy(transform.GetChild(0).gameObject);
+    }
+
+    IEnumerator RemoveFunny() {
+        yield return new WaitForSeconds(funnyTime);
+        isFunny = false;
+        canCatch = true;
+        blockMovement = false;
+        RotateCharacter();
+        Animator animator = GetComponent<Animator>();
+        animator.SetBool("isFunny", false);
     }
 
     //on trigger enter
-    protected void OnTriggerEnter2D(Collider2D other) {
+    protected void OnTriggerStay2D(Collider2D other) {
         if(other.tag == "Player") {
             PlayerState player = other.transform.GetComponent<PlayerState>();
-            if(player.hasMask && canMask) {
-                OnMask();
-            } else if(!player.isInvisible) {
+            if(player.isStinky && canStink && !isStinky && !isFunny) {
+                OnStinky();
+            } else if(player.isFunny && canFunny && !isStinky && !isFunny) {
+                OnFunny();
+            } else if(!player.isInvisible && canCatch) {
                 CharacterMovement.Instance.Die();
             }
         }
-                //if enemy tag === monkey and other tag === player
-                Debug.Log(gameObject.tag +"sd" + other.tag);
-        if ((gameObject.tag == "Monkey" && other.tag == "Boar") || 
-            (gameObject.tag == "Boar" && other.tag == "Monkey"))
-        {
-            Debug.Log("AAAAAAAAAAAAAAA");
-            if(canColide) {
-                OnColide();
-                other.GetComponent<Enemy>().OnColide();
-            }
-
-        }
     }
-
-
 }

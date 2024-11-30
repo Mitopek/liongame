@@ -6,6 +6,7 @@ using UnityEngine;
 
 public class CharacterMovement : Movement
 {
+    public bool isPushing = false;
     public static CharacterMovement Instance { get; private set; }
 
     void Awake() 
@@ -28,11 +29,11 @@ public class CharacterMovement : Movement
     void Update()
     {
         // jesli ruch wylaczony
-        if(blockMovement) {
-            return;
-        }
         if(nextMoveDirection == MoveDirectionType.None) {
             ResetMovement();
+            return;
+        }
+        if(blockMovement) {
             return;
         }
         //jesli doszedlismy do celu
@@ -57,6 +58,7 @@ public class CharacterMovement : Movement
                     return;
                 }
                 isMoving = true;
+                MakeMovingAnimation();
                 return;
             }
             UpdateTargetPosition(nextMoveDirection, targetPositionIndexes.Value);
@@ -64,7 +66,7 @@ public class CharacterMovement : Movement
                 return;
             }
             isMoving = true;
-            // equalizingTargetPosition = GetEqaualizingTargetPosition(targetPosition);
+            MakeMovingAnimation();
         } else if(WantTurnAround()) {
             Vector2Int? targetPositionIndexes = getTargetPositionIndexes(nextMoveDirection);
             if(targetPositionIndexes == null) {
@@ -81,7 +83,7 @@ public class CharacterMovement : Movement
             isMoving = false;
             isOnTarget = true;
             if(stopOnTarget || IsInBush(currentTargetPosition.Value)) {
-                nextMoveDirection = MoveDirectionType.None;
+                ResetMovement();
             }
             currentTargetPosition = null;
         } else {
@@ -109,12 +111,17 @@ public class CharacterMovement : Movement
 
     void OnTreePushed() {
         blockMovement = true;
+        isPushing = true;
+        PlayerState playerState = GetComponent<PlayerState>();
+        StartCoroutine(playerState.MoveMaskOnPush(currentMoveDirection));
+        MakePushAnimation();
         StartCoroutine(UnblockMovement());
     }
 
     IEnumerator UnblockMovement() {
         yield return new WaitForSeconds(blockMovementTime);
         blockMovement = false;
+        isPushing = false;
     }
 
     public void Die() {
@@ -134,6 +141,11 @@ public class CharacterMovement : Movement
             }
         }
         return false;
+    }
+
+    void MakePushAnimation() {
+        Animator animator = GetComponent<Animator>();
+        animator.SetTrigger("isPushing");
     }
 
     protected override bool CanMoveToPositionIndexes(Vector2Int positionIndexes) {
@@ -156,6 +168,9 @@ public class CharacterMovement : Movement
                 if(mapItem == MapItemType.Bush && !allowBush) {
                     return false;
                 }
+                if(mapItem == MapItemType.Hole) {
+                    return false;
+                }
             }
         }
         return true;
@@ -170,17 +185,9 @@ public class CharacterMovement : Movement
                 if(mapItem == MapItemType.Tree) {
                     Tree tree = trees[positionIndexes.y, positionIndexes.x];
                     bool? isClockwise = tree.ClockwiseDirectionPlayerCanPush();
-                    Debug.Log("XD");
                     if(isClockwise != null) {
-                        Debug.Log("XD2");
                         var result = tree.CanRotate(isClockwise.Value);
-                        Debug.Log(isClockwise);
-                        if(result.canRotate) {
-                            foreach(Tree.RotationResult rotationResult in result.results) {
-                                tree = rotationResult.tree;
-                                tree.Rotate(rotationResult.clockwise);
-                            }
-                        }
+                        StartCoroutine(MoveTrees(result));
                         return (true, !result.canRotate, result.canRotate);
                     }
                     return (true, false, false);
@@ -188,5 +195,20 @@ public class CharacterMovement : Movement
             }
         }
         return (false, false, false);
+    }
+
+    IEnumerator MoveTrees((bool canRotate, Tree.RotationResult[] results) result) {
+        yield return new WaitForSeconds(0.5f);
+        if(result.canRotate) {
+            foreach(Tree.RotationResult rotationResult in result.results) {
+                Tree tree = rotationResult.tree;
+                tree.Rotate(rotationResult.clockwise);
+            }
+        } else {
+            foreach(Tree.RotationResult rotationResult in result.results) {
+                Tree tree = rotationResult.tree;
+                tree.Shake(rotationResult.clockwise);
+            }
+        }
     }
 }

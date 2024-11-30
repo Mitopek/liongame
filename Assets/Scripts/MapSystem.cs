@@ -53,10 +53,12 @@ public class MapSystem : MonoBehaviour
         }
     }
 
-    public void AddDoneSand() {
-        doneSandCount = (doneSandCount ?? 0) + 1;
+    public void AddDoneSand(int count) {
+        doneSandCount = (doneSandCount ?? 0) + count;
         if(doneSandCount == allSandCount) {
             hole.GetComponent<Hole>().OpenHole();
+        } else {
+            hole.GetComponent<Hole>().CloseHole();
         }
     }
 

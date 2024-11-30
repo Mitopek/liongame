@@ -5,7 +5,7 @@ using UnityEngine;
 public class Sand : MonoBehaviour
 {
     public GameObject footprint;
-    bool isDone = false;
+    public bool isDone = false;
     void Start()
     {
         
@@ -25,9 +25,9 @@ public class Sand : MonoBehaviour
             if (!isDone)
             {
                 isDone = true;
-                MapSystem.Instance.AddDoneSand();
+                MapSystem.Instance.AddDoneSand(1);
                 Transform parent = other.transform.parent;
-                Instantiate(footprint, transform.position, parent.rotation);
+                Instantiate(footprint, transform.position, parent.rotation, transform);
             }
         }
     }

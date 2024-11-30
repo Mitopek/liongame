@@ -7,6 +7,7 @@ public class Tree : MonoBehaviour
     public TreeOrientationType orientation;
     private TreeOrientationType lastOrientation;
     private bool isRotating = false;
+    private bool isShaking = false;
 
     public struct RotationResult
     {
@@ -25,13 +26,6 @@ public class Tree : MonoBehaviour
     {
         orientation = GetOrientationByRotation();
         lastOrientation = orientation;
-        StartCoroutine(test());
-    }
-
-    IEnumerator test()
-    {
-        yield return new WaitForSeconds(2);
-        // Rotate(true);
     }
 
     void Update()
@@ -40,6 +34,41 @@ public class Tree : MonoBehaviour
         {
             Rotating();
         }
+    }
+
+    public void Shake(bool clockwise)
+    {
+        if(isShaking) {
+            return;
+        }
+        isShaking = true;
+        StartCoroutine(ShakeCoroutine(clockwise));
+    }
+
+    private IEnumerator ShakeCoroutine(bool clockwise)
+    {
+        float time = 0.0f;
+        float duration = 0.3f;
+        float angle = 0.0f;
+        float angleStep = clockwise ? -10.0f : 10.0f;
+        float currentRotationZ = transform.eulerAngles.z;
+        while (time < duration/2)
+        {
+            angle = Mathf.Lerp(0, angleStep, time / (duration / 2));
+            transform.rotation = Quaternion.Euler(0, 0, currentRotationZ + angle);
+            time += Time.deltaTime;
+            yield return null;
+        }
+        while (time < duration)
+        {
+            angle = Mathf.Lerp(angleStep, 0, (time - duration / 2) / (duration / 2));
+            transform.rotation = Quaternion.Euler(0, 0, currentRotationZ + angle);
+            time += Time.deltaTime;
+            yield return null;
+
+        }
+        transform.rotation = Quaternion.Euler(0, 0, currentRotationZ);
+        isShaking = false;
     }
 
     public void Rotate(bool clockwise)
@@ -113,8 +142,9 @@ public class Tree : MonoBehaviour
         int treeX = MapSystem.Instance.getXFromPosition(transform.position.x);
         int treeY = MapSystem.Instance.getYFromPosition(transform.position.y);
 
-        Vector2Int? playerPosition = CharacterMovement.Instance.currentPositionIndexes;
-        Debug.Log(playerPosition.Value + "aaa");
+        //get player transform
+        Transform playerTransform = CharacterMovement.Instance.transform;
+        Vector2Int? playerPosition = MapSystem.Instance.getXAndYFromPosition(playerTransform.position);
         if(orientation == TreeOrientationType.Horizontal) {
             if(playerPosition == new Vector2Int(treeX - 1, treeY + 1) || playerPosition == new Vector2Int(treeX + 1, treeY - 1)) {
                 return false;

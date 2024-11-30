@@ -26,7 +26,7 @@ public abstract class Movement : MonoBehaviour
 
     protected bool blockMovement = false;
 
-    protected float blockMovementTime = 1.0f;
+    protected float blockMovementTime = 1.25f;
 
     protected abstract bool CanMoveToPositionIndexes(Vector2Int positionIndexes);
 
@@ -98,7 +98,23 @@ public abstract class Movement : MonoBehaviour
         }
         nextMoveDirection = MoveDirectionType.None;
         currentMoveDirection = MoveDirectionType.None;
-        currentTargetPosition = null;
+        DisableMovingAnimation();
+        // currentTargetPosition = null;
+        // currentTargetPositionIndexes = null;
+    }
+
+    protected void MakeMovingAnimation() {
+        Animator animator = GetComponent<Animator>();
+        if(animator != null) {
+            animator.SetBool("isMoving", true);
+        }
+    }
+
+    protected void DisableMovingAnimation() {
+        Animator animator = GetComponent<Animator>();
+        if(animator != null) {
+            animator.SetBool("isMoving", false);
+        }
     }
 
     protected MoveDirectionType GetOppositeDirection(MoveDirectionType direction) {

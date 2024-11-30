@@ -35,7 +35,7 @@ public class Hole : MonoBehaviour
     //on trigger enter
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.tag == "PlayerCenterTrigger")
+        if (other.tag == "Player")
         {
             if (isOpened)
             {

@@ -10,6 +10,7 @@ public enum MapItemType
     Monkey,
     Elephant,
     Scarab,
+    Hole,
     
 
 }
