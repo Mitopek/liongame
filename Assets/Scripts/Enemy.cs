@@ -241,7 +241,6 @@ public class Enemy : Movement{
         //get player transform
         Transform playerTransform = CharacterMovement.Instance.transform;
         Vector2Int? playerPositionIndexes = MapSystem.Instance.getXAndYFromPosition(playerTransform.position);
-        Debug.Log(playerPositionIndexes);
         if(playerPositionIndexes == null) {
             return null;
         }
@@ -329,7 +328,6 @@ public class Enemy : Movement{
 
                     if (directionsMapArray[y, x] != null && directionsMapArray[y, x] != MoveDirectionType.None && 
                         currentPositionIndexes.Value.x == x && currentPositionIndexes.Value.y == y) {
-                        Debug.Log("XDDD");
                         MoveDirectionType? direction = GetDirectionFromTrace(new Vector2Int(x, y), directionsMapArray);
                         Debug.Log(direction);
                         if (direction != null) {
@@ -352,23 +350,19 @@ public class Enemy : Movement{
             maxTries--;
             if(positionIndexes.x == playerPositionIndexes.Value.x && positionIndexes.y == playerPositionIndexes.Value.y) {
                 if(directions.Count == 0) {
-                    Debug.Log("Because 1");
                     return null;
                 }
                 return directions[0];
             }
             MoveDirectionType? direction = directionsMapArray[positionIndexes.y, positionIndexes.x];
             if(direction == null) {
-                Debug.Log("Because 2");
                 return null;
             }
             MoveDirectionType opositeDirection = GetOppositeDirection(direction.Value);
             if(opositeDirection == MoveDirectionType.None) {
-                Debug.Log("Because 3");
                 return null;
             }
             if(usedDirections.Contains(direction.Value)) {
-                Debug.Log("Because 4");
                 return null;
             }
             usedDirections.Add(opositeDirection);

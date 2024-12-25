@@ -22,17 +22,14 @@ public class Touchpad : MonoBehaviour
         
     }
 
-    // Update is called once per frame
     void Update()
     {
         CheckTouch();
         
     }
 
-    //check finger move
     void CheckTouch()
     {
-        // Sprawdzanie dotyku na urządzeniach mobilnych
         if (Input.touchCount > 0)
         {
             Touch touch = Input.GetTouch(0);
@@ -49,7 +46,6 @@ public class Touchpad : MonoBehaviour
             }
         }
 
-        // Sprawdzanie kliknięcia myszką na komputerze
         if (Input.GetMouseButtonDown(0))
         {
             startTouchPosition = Input.mousePosition;
@@ -64,11 +60,9 @@ public class Touchpad : MonoBehaviour
 
     void ProcessTouch()
     {
-        // Oblicz różnicę w pozycjach
         float x = endTouchPosition.x - startTouchPosition.x;
         float y = endTouchPosition.y - startTouchPosition.y;
 
-        // Sprawdź, czy ruch był w poziomie, czy w pionie
         if (Mathf.Abs(x) > Mathf.Abs(y))
         {
             if (x > 0)
@@ -97,8 +91,6 @@ public class Touchpad : MonoBehaviour
             }
             playerScript.nextMoveDirection = playerScript.lastMoveDirection;
         }
-
-        // Resetuj pozycje po przetworzeniu dotyku/kliknięcia
         startTouchPosition = Vector2.zero;
         endTouchPosition = Vector2.zero;
     }
